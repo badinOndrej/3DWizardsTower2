@@ -3,6 +3,7 @@ A standalone sequel to 3D Wizard's Tower (https://www.nexusmods.com/fallout4/mod
 
 # Requirements
 Python 3
+
 PyGame - pip install pygame
 
 # Current progress

@@ -1,11 +1,11 @@
 # 3DWizardsTower2
 A standalone sequel to 3D Wizard's Tower (https://www.nexusmods.com/fallout4/mods/46805), maybe...
 
-# Requirements
+## Requirements
 - Python 3
 - PyGame - pip install pygame
 
-# Current progress
+## Current progress
 - movement ✅
 - collision detection with walls ✅
 - wall rendering ✅

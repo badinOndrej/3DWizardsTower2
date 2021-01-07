@@ -11,9 +11,9 @@ A standalone sequel to 3D Wizard's Tower (https://www.nexusmods.com/fallout4/mod
 - wall rendering ✅
 - sprite rendering ✅
 - automap rendering ✅
-- doors ❔ ("hidden" doors work, keys need implementing along with pickups)
-- pickups ❌
-- score system ❌
+- doors ✅
+- pickups ✅
+- score system ❔
 - level progression ❌
 - win/death state ❌
 - title screen & menu ❌

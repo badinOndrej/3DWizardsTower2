@@ -6,7 +6,16 @@ A standalone sequel to 3D Wizard's Tower (https://www.nexusmods.com/fallout4/mod
 - PyGame - pip install pygame
 
 # Current progress
-- wall rendering broken
-- sprite rendering sort of okay
-- automap rendering done (easy...)
-- partial implementation of doors (before I managed to break wall rendering)
+- movement ✅
+- collision detection with walls ✅
+- wall rendering ✅
+- sprite rendering ✅
+- automap rendering ✅
+- doors ❔ ("hidden" doors work, keys need implementing along with pickups)
+- pickups ❌
+- score system ❌
+- level progression ❌
+- win/death state ❌
+- title screen & menu ❌
+- music & sfx ❌
+- better textures ❌

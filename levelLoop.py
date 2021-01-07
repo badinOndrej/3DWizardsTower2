@@ -14,6 +14,8 @@ rotSpeed = 0.1
 playerSpeed = 0.075
 clock = pygame.time.Clock()
 
+score = 0
+
 planeX = 0
 planeY = 0.66
 
@@ -32,14 +34,14 @@ levelMaps = [
     [
         [1,1,1,1,1,1,1,1,1,5,1,1],
         [1,0,0,0,0,0,0,1,0,0,0,1],
-        [1,0,2,3,0,2,0,1,2,2,2,1],
+        [1,0,2,3,0,2,0,1,2,6,2,1],
         [4,0,0,0,0,0,0,1,0,0,0,1],
         [1,0,2,0,0,2,0,1,0,0,0,1],
         [1,0,2,2,2,2,0,1,0,0,0,1],
         [1,0,0,0,0,0,0,1,0,0,0,1],
         [1,1,1,0,0,1,1,1,1,1,0,1],
         [1,0,0,0,0,0,0,1,0,0,0,1],
-        [4,0,3,2,2,3,0,0,0,0,0,4],
+        [4,0,3,2,2,3,0,7,0,0,0,4],
         [1,0,0,0,0,0,0,1,0,0,0,1],
         [1,1,1,1,1,1,1,1,1,1,1,1]
     ]
@@ -48,31 +50,45 @@ levelMapDims = [
     {"x":12, "y":12}
 ]
 levelPlayerData = [
-    {"x":9.5, "y":9.5, "aX":-1, "aY":0}
+    {"x":9.5, "y":9.5, "aX":-1.0001, "aY":0.0001}
 ]
 levelTextures = [
     [
-        "grf/brickWall.png", "grf/bookcase.png", "grf/potionShelf.png", "grf/doorOnBrickWall.png", "grf/stairsUp.png"
+        "grf/brickWall.png", "grf/bookcase.png", "grf/potionShelf.png", "grf/doorOnBrickWall.png", "grf/stairsUp.png", "grf/bookcase_hDoor.png", "grf/door_red.png"
     ]
 ]
 levelDoors = [
     [
-        [9, 2, "hidden"] # x y type
+        [9, 2, "hidden"], # x y type                                 - types - hidden = regular or hidden door, red, yellow, blue
+        [7, 9, "red"]
     ]
 ]
 levelSprites = [
     [
-        (4, 4, "furn", 0)
+        [4, 4, "furn", 0, False],  # x y type texture taken         - types - furn = furniture, keyr = red key, keyb = blue key, keyy = yellow key, gold = money
+        [8.5, 5, "furn", 1, False],
+        [1.5, 1.5, "gold", 2, False],
+        [8.5, 1.5, "gold", 2, False],
+        [10.5, 1.5, "gold", 2, False],
+        [4.5, 2.5, "gold", 2, False],
+        [1.5, 10.5, "gold", 2, False],
+        [8.5, 6.5, "keyr", 3, False]
     ]
 ]
 spriteTextures = [
-    "grf/sprites/chair.png"
+    [
+        "grf/sprites/chair.png",
+        "grf/sprites/table.png",
+        "grf/sprites/moneyBag.png",
+        "grf/sprites/keyr.png"
+    ]
 ]
 
 levelBackground = pygame.image.load("grf/levelBackground.png")
 
 currLevelTextures = []
 currLevelSprites = []
+currLevelInventory = {"keyr": False, "keyy": False, "keyb": False}
 
 debugColoursA = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0xff00ff, 0x00ffff, 0xffffff]
 debugColoursB = [0x800000, 0x008000, 0x000080, 0x808000, 0x800080, 0x008080, 0x808080]
@@ -176,7 +192,7 @@ def raycast():
             strip.blit(texture, (0,0), (texX,0,texX+1,texture.get_height()))
             # if side 1, darken
             if side == 1:
-                dark = pygame.Surface(texture.get_size()).convert_alpha()
+                dark = pygame.Surface(strip.get_size()).convert_alpha()
                 dark.fill((0,0,0,127))
                 strip.blit(dark, (0,0))
             # scale strip
@@ -191,52 +207,99 @@ def drawSprites(zBuffer):
     levelSprites[currLevel].sort(key=cmp_to_key(sprite_compare))
     # draw sprites
     for spr in levelSprites[currLevel]:
-        # get texture
-        sprTex = currLevelSprites[spr[3]]
-        # sprite pos
-        spriteX = spr[0] - playerPos["x"]
-        spriteY = spr[1] - playerPos["y"]
-        # inverse matrix transform
-        invDet = 1.0 / (planeX * playerDir["y"] - playerDir["x"] * planeY)
-        transformX = invDet * (playerDir["y"] * spriteX - playerDir["x"] * spriteY)
-        transformY = invDet * (-planeY * spriteX + planeX * spriteY)    # z-depth
-        # screen x coord
-        spriteScreenX = int((w/2) * (1 + transformX / transformY))
-        # height on screen
-        spriteHeight = abs(int(h / transformY))
-        drawStartY = int(-spriteHeight / 2 + h / 2)
-        # width on screen
-        spriteWidth = abs(int(w / transformY))
-        drawStartX = int(-spriteWidth / 2 + spriteScreenX)
-        if drawStartX < 0: drawStartX = 0
-        drawEndX = int(spriteWidth / 2 + spriteScreenX)
-        if drawEndX >= w: drawEndX = w-1
-        # draw by strips
-        for stripX in range(drawStartX, drawEndX):
-            # texture x coord
-            texX = math.floor(256 * (stripX - (-spriteWidth / 2 + spriteScreenX)) * sprTex.get_width() / spriteWidth) / 256
-            # draw if
-            # in front of camera
-            # on screen - left
-            # on screen - right
-            # not occluded
-            if transformY > 0 and stripX > 0 and stripX < w and transformY < zBuffer[stripX]:
-                strip = pygame.Surface((1, sprTex.get_height()))
-                strip.blit(sprTex, (0,0), (texX, 0, texX+1, sprTex.get_height()))
-                strip.set_colorkey(0xff00ff)
-                strip = pygame.transform.scale(strip, (4, spriteHeight))
-                DISPLAY.blit(strip, (stripX * 4, drawStartY))
-        
+        if not spr[4]:
+            # get texture
+            sprTex = currLevelSprites[spr[3]]
+            # sprite pos
+            spriteX = spr[0] - playerPos["x"]
+            spriteY = spr[1] - playerPos["y"]
+            # inverse matrix transform
+            invDet = 1.0 / (planeX * playerDir["y"] - playerDir["x"] * planeY)
+            transformX = invDet * (playerDir["y"] * spriteX - playerDir["x"] * spriteY)
+            transformY = invDet * (-planeY * spriteX + planeX * spriteY)    # z-depth
+            # screen x coord
+            spriteScreenX = int((w/2) * (1 + transformX / transformY))
+            # height on screen
+            spriteHeight = abs(int(h / transformY))
+            drawStartY = int(-spriteHeight / 2 + h / 2)
+            # width on screen
+            spriteWidth = abs(int(w / transformY))
+            drawStartX = int(-spriteWidth / 2 + spriteScreenX)
+            drawEndX = int(spriteWidth / 2 + spriteScreenX)
+            # draw by strips
+            for stripX in range(drawStartX, drawEndX):
+                # texture x coord
+                texX = math.floor(256 * (stripX - (-spriteWidth / 2 + spriteScreenX)) * sprTex.get_width() / spriteWidth) / 256
+                if texX < 0: texX = 0                                           # fix black stripes
+                if texX >= sprTex.get_width(): texX = sprTex.get_width() - 1
+                # draw if
+                # in front of camera
+                # on screen - left
+                # on screen - right
+                # not occluded
+                if transformY > 0 and stripX > 0 and stripX < w and transformY < zBuffer[stripX]:
+                    strip = pygame.Surface((1, sprTex.get_height()))
+                    strip.blit(sprTex, (0,0), (texX, 0, texX+1, sprTex.get_height()))
+                    strip.set_colorkey(0xff00ff)
+                    strip = pygame.transform.scale(strip, (4, spriteHeight))
+                    DISPLAY.blit(strip, (stripX * 4, drawStartY))
+
+# if player is within certain distance of a sprite marked as "gold", "keyr", "keyy", "keyb", they will pick it up
+# gold adds to score
+# keys are for opening coloured doors
+def getPickups():
+    global score
+    for spr in levelSprites[currLevel]:
+        if spr[2] == "gold" or spr[2] == "keyr" or spr[2] == "keyy" or spr[2] == "keyb":
+            spriteX = spr[0] - playerPos["x"]
+            spriteY = spr[1] - playerPos["y"]
+            distToPlayer = math.sqrt(spriteX ** 2 + spriteY ** 2)
+            if distToPlayer < 0.2:
+                if spr[2] == "gold" and spr[4] == False: 
+                    score += 10
+                    print(score)
+                    spr[4] = True
+                if spr[2] == "keyr" and spr[4] == False: 
+                    currLevelInventory["keyr"] = True
+                    print("Found red key")
+                    spr[4] = True
+                if spr[2] == "keyy" and spr[4] == False: 
+                    currLevelInventory["keyy"] = True
+                    print("Found yellow key")
+                    spr[4] = True
+                if spr[2] == "keyb" and spr[4] == False: 
+                    currLevelInventory["keyb"] = True
+                    print("Found blue key")
+                    spr[4] = True
+
+# if level timer runs out, game over
+def outOfTime():
+    pass
+
+# if colliding with level exit, transition to the next level with blank screen for one second
+# if last level, transition to win screen & back to menu
+def nextLevel():
+    pass
+
+# if colliding with a door, player can open it if certain conditions are met
+def openDoor():
+    newPosX = playerPos["x"] + playerSpeed * playerDir["x"]
+    newPosY = playerPos["y"] + playerSpeed * playerDir["y"]
+    for door in levelDoors[currLevel]:
+        if (door[0] == math.floor(newPosX)) and (door[1] == math.floor(newPosY)):
+            if (door[2] == "hidden") or (door[2] == "red" and currLevelInventory["keyr"]) or (door[2] == "yellow" and currLevelInventory["keyy"]) or (door[2] == "blue" and currLevelInventory["keyb"]):
+                levelMaps[currLevel][door[1]][door[0]] = 0
 
 def updateGameVars(currLevel):
     playerPos["x"] = levelPlayerData[currLevel]["x"]
     playerPos["y"] = levelPlayerData[currLevel]["y"]
     playerDir["x"] = levelPlayerData[currLevel]["aX"]
     playerDir["y"] = levelPlayerData[currLevel]["aY"]
+    currLevelInventory = {"keyr": False, "keyy": False, "keyb": False}
     for tex in levelTextures[currLevel]:
         currLevelTextures.append((pygame.image.load(tex)).convert())
-    for spr in levelSprites[currLevel]:
-        currLevelSprites.append((pygame.image.load(spriteTextures[spr[3]])).convert())
+    for spr in spriteTextures[currLevel]:
+        currLevelSprites.append((pygame.image.load(spr)).convert())
 
 def initLevelLoop(surface):
     global currLevel, levelBackground, DISPLAY
@@ -271,6 +334,9 @@ def levelLoop():
             pygame.draw.line(DISPLAY,0xffaa44,(playerScreenX, playerScreenY), (playerScreenX + 30*playerDir["y"], playerScreenY + 30*playerDir["x"]), 3)
 
         pygame.display.update()
+
+        getPickups()
+
         # manage events - quit, keyboard input
         for event in pygame.event.get():
             # keyboard
@@ -286,13 +352,7 @@ def levelLoop():
                 if event.__dict__["key"] == K_m:
                     drawMap = not drawMap
                 if event.__dict__["key"] == K_SPACE:
-                    # try to open hidden door
-                    newPosX = playerPos["x"] + playerSpeed * playerDir["x"]
-                    newPosY = playerPos["y"] + playerSpeed * playerDir["y"]
-                    for door in levelDoors[currLevel]:
-                        if (door[0] == math.floor(newPosX)) and (door[1] == math.floor(newPosY)):
-                            if door[2] == "hidden":
-                                levelMaps[currLevel][door[1]][door[0]] = 0
+                    openDoor()
             if event.type == KEYUP:
                 if event.__dict__["key"] == K_LEFT:
                     keypressed["left"] = False

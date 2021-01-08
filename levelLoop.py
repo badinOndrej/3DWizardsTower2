@@ -44,23 +44,44 @@ levelMaps = [
         [4,0,3,2,2,3,0,7,0,0,0,4],
         [1,0,0,0,0,0,0,1,0,0,0,1],
         [1,1,1,1,1,1,1,1,1,1,1,1]
+    ],
+    [
+        [1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0],
+        [1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1,1,1,1,1],
+        [1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+        [1,0,0,0,1,0,0,0,0,0,0,1,1,1,1,1,1,2,1,1],
+        [1,0,0,0,1,1,1,0,0,1,1,1,0,0,0,1,0,0,0,1],
+        [1,1,0,1,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+        [1,0,0,0,1,0,0,0,0,0,0,1,1,1,1,1,0,0,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+        [1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ]
 ]
 levelMapDims = [
-    {"x":12, "y":12}
+    {"x":12, "y":12},
+    {"x":20, "y":10}
 ]
 levelPlayerData = [
-    {"x":9.5, "y":9.5, "aX":-1.0001, "aY":0.0001}
+    {"x":9.5, "y":9.5, "aX":-1.0001, "aY":0.0001, "pX":0, "pY":0.66},
+    {"x":2.5, "y":2.5, "aX":0.0001, "aY":1.0001, "pX":0.66, "pY":0}
 ]
 levelTextures = [
     [
         "grf/brickWall.png", "grf/bookcase.png", "grf/potionShelf.png", "grf/doorOnBrickWall.png", "grf/stairsUp.png", "grf/bookcase_hDoor.png", "grf/door_red.png"
+    ],
+    [
+        "grf/brickWall.png", "grf/door_red.png"
     ]
 ]
 levelDoors = [
     [
-        [9, 2, "hidden"], # x y type                                 - types - hidden = regular or hidden door, red, yellow, blue
-        [7, 9, "red"]
+        [9, 2, "hidden"], # x y type                                 - types - hidden = regular or hidden door, red, yellow, blue, exit
+        [7, 9, "red"],
+        [9, 0, "exit"]
+    ],
+    [
+        [17,3, "red"]
     ]
 ]
 levelSprites = [
@@ -73,6 +94,9 @@ levelSprites = [
         [4.5, 2.5, "gold", 2, False],
         [1.5, 10.5, "gold", 2, False],
         [8.5, 6.5, "keyr", 3, False]
+    ], 
+    [
+        [18.5, 8.5, "furn", 0, False]
     ]
 ]
 spriteTextures = [
@@ -81,6 +105,9 @@ spriteTextures = [
         "grf/sprites/table.png",
         "grf/sprites/moneyBag.png",
         "grf/sprites/keyr.png"
+    ],
+    [
+        "grf/sprites/table.png"
     ]
 ]
 
@@ -279,7 +306,9 @@ def outOfTime():
 # if colliding with level exit, transition to the next level with blank screen for one second
 # if last level, transition to win screen & back to menu
 def nextLevel():
-    pass
+    global currLevel
+    currLevel += 1
+    updateGameVars(currLevel)
 
 # if colliding with a door, player can open it if certain conditions are met
 def openDoor():
@@ -289,15 +318,22 @@ def openDoor():
         if (door[0] == math.floor(newPosX)) and (door[1] == math.floor(newPosY)):
             if (door[2] == "hidden") or (door[2] == "red" and currLevelInventory["keyr"]) or (door[2] == "yellow" and currLevelInventory["keyy"]) or (door[2] == "blue" and currLevelInventory["keyb"]):
                 levelMaps[currLevel][door[1]][door[0]] = 0
+            if (door[2] == "exit"):
+                nextLevel()
 
 def updateGameVars(currLevel):
+    global currLevelTextures, currLevelSprites, currLevelInventory, planeX, planeY
     playerPos["x"] = levelPlayerData[currLevel]["x"]
     playerPos["y"] = levelPlayerData[currLevel]["y"]
     playerDir["x"] = levelPlayerData[currLevel]["aX"]
     playerDir["y"] = levelPlayerData[currLevel]["aY"]
+    planeY = levelPlayerData[currLevel]["pY"]
+    planeX = levelPlayerData[currLevel]["pX"]
     currLevelInventory = {"keyr": False, "keyy": False, "keyb": False}
+    currLevelTextures = []
     for tex in levelTextures[currLevel]:
         currLevelTextures.append((pygame.image.load(tex)).convert())
+    currLevelSprites = []
     for spr in spriteTextures[currLevel]:
         currLevelSprites.append((pygame.image.load(spr)).convert())
 
@@ -319,19 +355,24 @@ def levelLoop():
         raycast()
 
         if drawMap:
+            automap = pygame.Surface((640, 480))
+            automap.fill(0xff00ff)
+            automap.set_colorkey(0xff00ff)
             # draw map
-            mapDx = 640 / levelMapDims[currLevel]["y"]
-            mapDy = 480 / levelMapDims[currLevel]["x"]
+            mapDx = 640 / levelMapDims[currLevel]["x"]
+            mapDy = 480 / levelMapDims[currLevel]["y"]
             for mapY in range(0,levelMapDims[currLevel]["y"]):
                 for mapX in range(0,levelMapDims[currLevel]["x"]):
-                    if levelMaps[currLevel][mapX][mapY] > 0:
-                        pygame.draw.rect(DISPLAY, 0x44aaff, Rect((mapX * mapDx) + 1, (mapY * mapDy) + 1, mapDx - 2, mapDy - 2))
-
+                    if levelMaps[currLevel][mapY][mapX] > 0:
+                        pygame.draw.rect(automap, 0x44aaff, Rect((mapX * mapDx) + 1, (mapY * mapDy) + 1, mapDx - 2, mapDy - 2))
             # draw player on map
-            playerScreenX = playerPos["y"] * mapDx
-            playerScreenY = playerPos["x"] * mapDy
-            pygame.draw.rect(DISPLAY, 0xffaa44, Rect(playerScreenX-2,playerScreenY-2,5,5))
-            pygame.draw.line(DISPLAY,0xffaa44,(playerScreenX, playerScreenY), (playerScreenX + 30*playerDir["y"], playerScreenY + 30*playerDir["x"]), 3)
+            playerScreenX = playerPos["x"] * mapDx
+            playerScreenY = playerPos["y"] * mapDy
+            pygame.draw.rect(automap, 0xffaa44, Rect(playerScreenX-2,playerScreenY-2,5,5))
+            pygame.draw.line(automap,0xffaa44,(playerScreenX, playerScreenY), (playerScreenX + 30*playerDir["x"], playerScreenY + 30*playerDir["y"]), 3)
+            # blit to screen
+            automap = pygame.transform.flip(automap, True, False)
+            DISPLAY.blit(automap, (0,0))
 
         pygame.display.update()
 

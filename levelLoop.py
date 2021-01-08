@@ -110,8 +110,15 @@ spriteTextures = [
         "grf/sprites/table.png"
     ]
 ]
+levelObstacles = [
+    [],
+    [
+        [1.5, 4.5, 1.5, 4.5, 3.5, 4.5, 0.1, True] # curr x y, start x y, end x y, speed, toEnd
+    ]
+]
 
 levelBackground = pygame.image.load("grf/levelBackground.png")
+obstacle = pygame.image.load("grf/sprites/magicObstacle.png")
 
 currLevelTextures = []
 currLevelSprites = []
@@ -190,7 +197,6 @@ def raycast():
         # calc line height
         lineHeight = int(h / perpWallDist)
         drawStartY = -lineHeight / 2 + h / 2
-        drawEndY = lineHeight / 2 + h / 2
         # get texture
         texture = currLevelTextures[levelMaps[currLevel][mapY][mapX] - 1]
         # if debug, draw solid colours
@@ -227,6 +233,7 @@ def raycast():
             # blit to screen
             DISPLAY.blit(strip, (x*4, drawStartY))
     drawSprites(zBuffer)
+    drawObstacles(zBuffer)
     
 # handles drawing sprites
 def drawSprites(zBuffer):
@@ -237,39 +244,53 @@ def drawSprites(zBuffer):
         if not spr[4]:
             # get texture
             sprTex = currLevelSprites[spr[3]]
-            # sprite pos
-            spriteX = spr[0] - playerPos["x"]
-            spriteY = spr[1] - playerPos["y"]
-            # inverse matrix transform
-            invDet = 1.0 / (planeX * playerDir["y"] - playerDir["x"] * planeY)
-            transformX = invDet * (playerDir["y"] * spriteX - playerDir["x"] * spriteY)
-            transformY = invDet * (-planeY * spriteX + planeX * spriteY)    # z-depth
-            # screen x coord
-            spriteScreenX = int((w/2) * (1 + transformX / transformY))
-            # height on screen
-            spriteHeight = abs(int(h / transformY))
-            drawStartY = int(-spriteHeight / 2 + h / 2)
-            # width on screen
-            spriteWidth = abs(int(w / transformY))
-            drawStartX = int(-spriteWidth / 2 + spriteScreenX)
-            drawEndX = int(spriteWidth / 2 + spriteScreenX)
-            # draw by strips
-            for stripX in range(drawStartX, drawEndX):
-                # texture x coord
-                texX = math.floor(256 * (stripX - (-spriteWidth / 2 + spriteScreenX)) * sprTex.get_width() / spriteWidth) / 256
-                if texX < 0: texX = 0                                           # fix black stripes
-                if texX >= sprTex.get_width(): texX = sprTex.get_width() - 1
-                # draw if
-                # in front of camera
-                # on screen - left
-                # on screen - right
-                # not occluded
-                if transformY > 0 and stripX > 0 and stripX < w and transformY < zBuffer[stripX]:
-                    strip = pygame.Surface((1, sprTex.get_height()))
-                    strip.blit(sprTex, (0,0), (texX, 0, texX+1, sprTex.get_height()))
-                    strip.set_colorkey(0xff00ff)
-                    strip = pygame.transform.scale(strip, (4, spriteHeight))
-                    DISPLAY.blit(strip, (stripX * 4, drawStartY))
+            renderSprite(spr, sprTex, zBuffer)
+
+# handles drawing sprites
+def drawObstacles(zBuffer):
+    # sort sprites
+    levelObstacles[currLevel].sort(key=cmp_to_key(sprite_compare))
+    # draw sprites
+    for spr in levelObstacles[currLevel]:
+        # get texture
+        sprTex = obstacle
+        renderSprite(spr, sprTex, zBuffer)
+        
+    
+def renderSprite(spr, sprTex, zBuffer):
+    # sprite pos
+    spriteX = spr[0] - playerPos["x"]
+    spriteY = spr[1] - playerPos["y"]
+    # inverse matrix transform
+    invDet = 1.0 / (planeX * playerDir["y"] - playerDir["x"] * planeY)
+    transformX = invDet * (playerDir["y"] * spriteX - playerDir["x"] * spriteY)
+    transformY = invDet * (-planeY * spriteX + planeX * spriteY)    # z-depth
+    # screen x coord
+    spriteScreenX = int((w/2) * (1 + transformX / transformY))
+    # height on screen
+    spriteHeight = abs(int(h / transformY))
+    drawStartY = int(-spriteHeight / 2 + h / 2)
+    # width on screen
+    spriteWidth = abs(int(w / transformY))
+    drawStartX = int(-spriteWidth / 2 + spriteScreenX)
+    drawEndX = int(spriteWidth / 2 + spriteScreenX)
+    # draw by strips
+    for stripX in range(drawStartX, drawEndX):
+        # texture x coord
+        texX = math.floor(256 * (stripX - (-spriteWidth / 2 + spriteScreenX)) * sprTex.get_width() / spriteWidth) / 256
+        if texX < 0: texX = 0                                           # fix black stripes
+        if texX >= sprTex.get_width(): texX = sprTex.get_width() - 1
+        # draw if
+        # in front of camera
+        # on screen - left
+        # on screen - right
+        # not occluded
+        if transformY > 0 and stripX > 0 and stripX < w and transformY < zBuffer[stripX]:
+            strip = pygame.Surface((1, sprTex.get_height()))
+            strip.blit(sprTex, (0,0), (texX, 0, texX+1, sprTex.get_height()))
+            strip.set_colorkey(0xff00ff)
+            strip = pygame.transform.scale(strip, (4, spriteHeight))
+            DISPLAY.blit(strip, (stripX * 4, drawStartY))
 
 # if player is within certain distance of a sprite marked as "gold", "keyr", "keyy", "keyb", they will pick it up
 # gold adds to score
@@ -281,7 +302,7 @@ def getPickups():
             spriteX = spr[0] - playerPos["x"]
             spriteY = spr[1] - playerPos["y"]
             distToPlayer = math.sqrt(spriteX ** 2 + spriteY ** 2)
-            if distToPlayer < 0.2:
+            if distToPlayer < 0.3:
                 if spr[2] == "gold" and spr[4] == False: 
                     score += 10
                     print(score)
@@ -321,6 +342,28 @@ def openDoor():
             if (door[2] == "exit"):
                 nextLevel()
 
+# move obstacles
+def moveObstacles():
+    for obs in levelObstacles[currLevel]:
+        # from start to end
+        if obs[7]:
+            if obs[2] == obs[4]: stepX = 0
+            else: stepX = obs[6] / (obs[4] - obs[2])
+            if obs[3] == obs[5]: stepY = 0
+            else: stepY = obs[6] / (obs[5] - obs[3])
+            if round(obs[0], 2) != obs[4]: obs[0] += stepX
+            if round(obs[1], 2) != obs[5]: obs[1] += stepY
+            if round(obs[0], 2) == obs[4] and round(obs[1], 2) == obs[5]: obs[7] = False
+        # from end to start
+        else:
+            if obs[2] == obs[4]: stepX = 0
+            else: stepX = obs[6] / (obs[2] - obs[4])
+            if obs[3] == obs[5]: stepY = 0
+            else: stepY = obs[6] / (obs[3] - obs[5])
+            if round(obs[0], 2) != obs[2]: obs[0] += stepX
+            if round(obs[1], 2) != obs[3]: obs[1] += stepY
+            if round(obs[0], 2) == obs[2] and round(obs[1], 2) == obs[3]: obs[7] = True
+
 def updateGameVars(currLevel):
     global currLevelTextures, currLevelSprites, currLevelInventory, planeX, planeY
     playerPos["x"] = levelPlayerData[currLevel]["x"]
@@ -338,10 +381,11 @@ def updateGameVars(currLevel):
         currLevelSprites.append((pygame.image.load(spr)).convert())
 
 def initLevelLoop(surface):
-    global currLevel, levelBackground, DISPLAY
+    global currLevel, levelBackground, DISPLAY, obstacle
     DISPLAY = surface
     currLevel = 0
     levelBackground = levelBackground.convert()
+    obstacle = obstacle.convert()
     updateGameVars(currLevel)
     levelLoop()
 
@@ -377,6 +421,7 @@ def levelLoop():
         pygame.display.update()
 
         getPickups()
+        moveObstacles()
 
         # manage events - quit, keyboard input
         for event in pygame.event.get():

@@ -14,7 +14,9 @@ A standalone sequel to 3D Wizard's Tower (https://www.nexusmods.com/fallout4/mod
 - doors ✅
 - pickups ✅
 - score system ❔
-- level progression ❌
+- level progression ❔️
+- level hazards ❔️
 - win/death state ❌
+- HUD ❌
 - title screen & menu ❌
 - music & sfx ❌

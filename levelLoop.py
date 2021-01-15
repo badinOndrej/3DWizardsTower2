@@ -15,6 +15,9 @@ playerSpeed = 0.075
 clock = pygame.time.Clock()
 
 score = 0
+lives = 3
+
+isPlayerHit = False
 
 planeX = 0
 planeY = 0.66
@@ -333,8 +336,8 @@ def nextLevel():
 
 # if colliding with a door, player can open it if certain conditions are met
 def openDoor():
-    newPosX = playerPos["x"] + playerSpeed * playerDir["x"]
-    newPosY = playerPos["y"] + playerSpeed * playerDir["y"]
+    newPosX = playerPos["x"] + 0.5 * playerDir["x"]
+    newPosY = playerPos["y"] + 0.5 * playerDir["y"]
     for door in levelDoors[currLevel]:
         if (door[0] == math.floor(newPosX)) and (door[1] == math.floor(newPosY)):
             if (door[2] == "hidden") or (door[2] == "red" and currLevelInventory["keyr"]) or (door[2] == "yellow" and currLevelInventory["keyy"]) or (door[2] == "blue" and currLevelInventory["keyb"]):
@@ -363,6 +366,14 @@ def moveObstacles():
             if round(obs[0], 2) != obs[2]: obs[0] += stepX
             if round(obs[1], 2) != obs[3]: obs[1] += stepY
             if round(obs[0], 2) == obs[2] and round(obs[1], 2) == obs[3]: obs[7] = True
+
+# obstacle collision - take a hit, lose a life
+def collideWithObstacle():
+    for obs in levelObstacles[currLevel]:
+        # distance from player
+        dist = math.sqrt((obs[0] - playerPos["x"]) ** 2 + (obs[1] - playerPos["y"]) ** 2)
+        if dist < 0.3:
+            print("Obstacle hit")
 
 def updateGameVars(currLevel):
     global currLevelTextures, currLevelSprites, currLevelInventory, planeX, planeY
@@ -422,6 +433,7 @@ def levelLoop():
 
         getPickups()
         moveObstacles()
+        collideWithObstacle()
 
         # manage events - quit, keyboard input
         for event in pygame.event.get():

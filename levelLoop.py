@@ -17,6 +17,7 @@ clock = pygame.time.Clock()
 score = 0
 lives = 3
 
+inv_timer = 0
 isPlayerHit = False
 
 planeX = 0
@@ -369,11 +370,17 @@ def moveObstacles():
 
 # obstacle collision - take a hit, lose a life
 def collideWithObstacle():
+    global isPlayerHit, lives, inv_timer
     for obs in levelObstacles[currLevel]:
         # distance from player
         dist = math.sqrt((obs[0] - playerPos["x"]) ** 2 + (obs[1] - playerPos["y"]) ** 2)
         if dist < 0.3:
-            print("Obstacle hit")
+            if not isPlayerHit:
+                isPlayerHit = True
+                print("Previous lives:", lives)
+                lives -= 1
+                print("New lives:", lives)
+                inv_timer = 30
 
 def updateGameVars(currLevel):
     global currLevelTextures, currLevelSprites, currLevelInventory, planeX, planeY
@@ -401,7 +408,7 @@ def initLevelLoop(surface):
     levelLoop()
 
 def levelLoop():
-    global currLevel, playerSpeed, clock, drawMap, DISPLAY, planeX, planeY
+    global currLevel, playerSpeed, clock, drawMap, DISPLAY, planeX, planeY, isPlayerHit, inv_timer
     
     # game loop
     while True:
@@ -490,5 +497,10 @@ def levelLoop():
             oldPlaneX = planeX
             planeX = planeX * math.cos(rotSpeed) - planeY * math.sin(rotSpeed)
             planeY = oldPlaneX * math.sin(rotSpeed) + planeY * math.cos(rotSpeed)
+        # invincibility timer
+        if inv_timer > 0:
+            inv_timer -= 1
+        else:
+            isPlayerHit = False
         # limit framerate
         clock.tick(20)
